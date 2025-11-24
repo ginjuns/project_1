@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>스마트 출석 시스템</title>
+    <link rel="stylesheet" href="style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="container" id="auth-container">
+        <div id="login-section">
+            <h2>🎓 로그인</h2>
+            <input type="number" id="login-id" placeholder="학번 (예: 2025001)" onkeypress="if(event.keyCode===13) processLogin()">
+            <div class="input-with-icon">
+                <input type="password" id="login-pw" placeholder="비밀번호" onkeypress="if(event.keyCode===13) processLogin()">
+                <span class="toggle-icon" onclick="togglePw('login-pw', this)">👁️</span>
+            </div>
+            <button class="btn-secondary" onclick="processLogin()">로그인</button>
+            <span class="switch-link" onclick="showRegister()">회원가입 하러가기</span>
+        </div>
+
+        <div id="register-section" class="hidden">
+            <h2>📝 회원가입</h2>
+            <input type="number" id="reg-id" placeholder="학번">
+            <input type="text" id="reg-name" placeholder="이름">
+            <div class="input-with-icon">
+                <input type="password" id="reg-pw" placeholder="비밀번호">
+                <span class="toggle-icon" onclick="togglePw('reg-pw', this)">👁️</span>
+            </div>
+            <div class="checkbox-wrapper">
+                <input type="checkbox" id="admin-check" onchange="toggleAdminInput()">
+                <label for="admin-check">교수님(관리자)으로 가입</label>
+            </div>
+            <input type="text" id="reg-admin-key" placeholder="관리자 인증키 입력" disabled>
+            <button class="btn-primary" onclick="processRegister()">가입하기</button>
+            <span class="switch-link" onclick="showLogin()">로그인 하러가기</span>
+        </div>
+    </div>
+
+    <div id="dashboard-section" class="container hidden" style="width: 400px;">
+        <div class="admin-header">
+            <h3 style="margin:0;" id="dash-welcome">환영합니다</h3>
+            <button class="btn-danger small-btn" onclick="processLogout()">로그아웃</button>
+        </div>
+        
+        <div id="student-actions" class="hidden">
+            <input type="text" id="join-code" placeholder="수업 코드 입력" style="text-align:center; text-transform:uppercase;">
+            <button class="btn-primary" onclick="joinCourse()">➕ 수업 참여하기</button>
+        </div>
+        
+        <div id="admin-actions" class="hidden">
+            <input type="text" id="new-course-name" placeholder="새 수업 이름">
+            <button class="btn-primary" onclick="createCourse()">🛠️ 새 수업 개설</button>
+        </div>
+        
+        <hr style="border-color:rgba(255,255,255,0.2); margin: 20px 0;">
+        <h4 style="text-align:left;">📂 내 수업 목록</h4>
+        <div id="my-course-list" class="course-list-container"></div>
+    </div>
+
+    <div id="main-section" class="container hidden">
+        <div class="admin-header">
+            <h3 style="margin:0;" id="class-title-stu">수업명</h3>
+            <button class="btn-dark small-btn" onclick="goBackToDashboard()">나가기</button>
+        </div>
+        <p>오늘도 힘차게 출석하세요!</p>
+        <div class="check-in-circle" onclick="requestCheckIn()">출석하기</div>
+        <button class="btn-secondary" onclick="openCalendar()">📅 내 출석 달력</button>
+    </div>
+
+    <div id="admin-section" class="admin-layout hidden">
+        <div class="admin-sidebar-panel">
+            <div class="class-info-card">
+                <h2 id="class-title-adm">수업명</h2>
+                <div class="code-box">
+                    <span style="opacity:0.7">CODE</span> 
+                    <span id="class-code-display" style="font-weight:bold; color:#ffd700;">-</span>
+                </div>
+            </div>
+            <nav class="side-nav">
+                <button id="nav-dashboard" class="nav-item active" onclick="switchAdminView('dashboard')">📊 출석 현황</button>
+                <button id="nav-students" class="nav-item" onclick="switchAdminView('students')">🧑‍🎓 학생 관리</button>
+                <button id="nav-settings" class="nav-item" onclick="switchAdminView('settings')">⚙️ 수업 설정</button>
+            </nav>
+            <div class="sidebar-footer">
+                <button class="btn-dark small-btn" onclick="goBackToDashboard()">나가기</button>
+            </div>
+        </div>
+        
+        <div class="admin-content-panel">
+            <div id="view-dashboard" class="content-view">
+                <div class="view-header">
+                    <h3 id="list-date-title">📋 오늘의 출석</h3>
+                    <div class="header-actions">
+                        <button class="btn-secondary small-btn" onclick="openAdminCalendar()">📅 날짜 선택</button>
+                        <button class="btn-secondary small-btn" onclick="loadAllRecords()">🔄 새로고침</button>
+                    </div>
+                </div>
+                <div class="card"><div id="student-list" class="student-list-view"></div></div>
+            </div>
+            
+            <div id="view-students" class="content-view hidden">
+                <div class="view-header"><h3 id="student-count-title">🧑‍🎓 수강생 목록</h3></div>
+                <div class="card"><div id="enrolled-students-list" class="student-list-view"></div></div>
+            </div>
+            
+            <div id="view-settings" class="content-view hidden">
+                <div class="view-header"><h3>⚙️ 수업 일정 관리</h3></div>
+                <div class="settings-grid">
+                    <div class="card setting-card">
+                        <div class="card-header">
+                            <h4>📅 정규 주간 시간표</h4>
+                            <button class="btn-primary small-btn" onclick="openModal('modal-add-schedule')">➕ 추가</button>
+                        </div>
+                        <ul id="schedule-list" class="simple-list"></ul>
+                    </div>
+
+                    <div class="card setting-card">
+                        <div class="card-header">
+                            <h4>🚨 휴강 및 보강 관리</h4>
+                            <div style="display:flex; gap:5px;">
+                                <button class="btn-danger small-btn" onclick="openModal('modal-cancel')">휴강등록</button>
+                                <button class="btn-secondary small-btn" onclick="openModal('modal-special')">보강등록</button>
+                            </div>
+                        </div>
+                        <h5 style="margin:10px 0 5px 0; color:#666; border-bottom:1px solid #eee; padding-bottom:5px;">⛔ 휴강 목록</h5>
+                        <ul id="cancel-list" class="simple-list" style="max-height:150px; overflow-y:auto; margin-bottom:15px;"></ul>
+                        
+                        <h5 style="margin:10px 0 5px 0; color:#666; border-bottom:1px solid #eee; padding-bottom:5px;">➕ 보강 목록</h5>
+                        <ul id="special-list" class="simple-list" style="max-height:150px; overflow-y:auto;"></ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="modal-add-schedule" class="modal hidden">
+        <div class="modal-content">
+            <h3>📅 정규 시간표 추가</h3>
+            <div style="margin-bottom:15px; padding:10px; background:#f9f9f9; border-radius:8px;">
+                <label style="font-size:12px; color:#666;">수업 요일</label>
+                <select id="sched-day" class="full-width-input">
+                    <option value="1">월요일</option><option value="2">화요일</option><option value="3">수요일</option>
+                    <option value="4">목요일</option><option value="5">금요일</option><option value="6">토요일</option><option value="0">일요일</option>
+                </select>
+            </div>
+            <div style="margin-bottom:15px;">
+                <label style="font-size:12px; color:#666;">유효 기간</label>
+                <div class="input-group"><label>시작일</label><input type="date" id="sched-valid-start"></div>
+                <div class="input-group"><label>종료일</label><input type="date" id="sched-valid-end"></div>
+            </div>
+            <div class="input-group"><label>시작</label><input type="time" id="sched-start"></div>
+            <div class="input-group"><label>지각</label><input type="time" id="sched-late"></div>
+            <div class="input-group"><label>종료</label><input type="time" id="sched-end"></div>
+            <button class="btn-primary" onclick="addSchedule()">추가하기</button>
+            <button class="close-btn" onclick="closeModal('modal-add-schedule')">취소</button>
+        </div>
+    </div>
+
+    <div id="modal-cancel" class="modal hidden">
+        <div class="modal-content">
+            <h3>⛔ 휴강 등록</h3><p>해당 날짜 수업을 취소합니다.</p>
+            <input type="date" id="cancel-date" class="full-width-input">
+            <button class="btn-danger" onclick="addCancellation()">확정</button>
+            <button class="close-btn" onclick="closeModal('modal-cancel')">취소</button>
+        </div>
+    </div>
+
+    <div id="modal-special" class="modal hidden">
+        <div class="modal-content">
+            <h3>➕ 보강 등록</h3>
+            <input type="date" id="special-date" class="full-width-input">
+            <div class="input-group"><label>시작</label><input type="time" id="special-start"></div>
+            <div class="input-group"><label>지각</label><input type="time" id="special-late"></div>
+            <div class="input-group"><label>종료</label><input type="time" id="special-end"></div>
+            <button class="btn-primary" onclick="addSpecialSchedule()">등록</button>
+            <button class="close-btn" onclick="closeModal('modal-special')">취소</button>
+        </div>
+    </div>
+
+    <div id="calendar-modal" class="modal hidden">
+        <div class="modal-content">
+            <div class="calendar-header">
+                <button class="nav-btn" onclick="goToPrevMonth()">◀️</button>
+                <span id="cal-month-year" onclick="showMonthYearPicker()" style="cursor:pointer"></span>
+                <div class="month-year-picker hidden" id="month-year-picker"><select id="year-select"></select><select id="month-select"></select><button onclick="applyMonthYearSelection()">이동</button></div>
+                <button class="nav-btn" onclick="goToNextMonth()">▶️</button>
+            </div>
+            <div class="calendar-days"><div style="color:red">일</div><div>월</div><div>화</div><div>수</div><div>목</div><div>금</div><div style="color:blue">토</div></div>
+            <div id="calendar-grid" class="calendar-grid"></div>
+            <button class="close-btn" onclick="closeCalendar()">닫기</button>
+        </div>
+    </div>
+
+    <div id="detail-modal" class="modal hidden">
+        <div class="modal-content">
+            <h3 id="detail-date"></h3><p id="detail-time"></p>
+            <button class="close-btn" onclick="document.getElementById('detail-modal').classList.add('hidden')">확인</button>
+        </div>
+    </div>
+
+    <div id="modal-student-stats" class="modal hidden">
+        <div class="modal-content" style="width: 500px;">
+            <h3 id="stat-student-name">학생 상세 정보</h3>
+            <div class="stat-summary-box">
+                <div class="stat-item"><span class="stat-label">총 수업</span><span class="stat-value" id="stat-total">0</span></div>
+                <div class="stat-item" style="color:#2ecc71"><span class="stat-label">출석</span><span class="stat-value" id="stat-present">0</span></div>
+                <div class="stat-item" style="color:#f39c12"><span class="stat-label">지각</span><span class="stat-value" id="stat-late">0</span></div>
+                <div class="stat-item" style="color:#e74c3c"><span class="stat-label">결석</span><span class="stat-value" id="stat-absent">0</span></div>
+            </div>
+            <div style="margin: 20px 0;">
+                <div style="display:flex; justify-content:space-between; font-size:12px; margin-bottom:5px;"><span>출석률 (지각 포함)</span><span id="stat-rate" style="font-weight:bold;">0%</span></div>
+                <div style="width:100%; height:10px; background:#eee; border-radius:5px; overflow:hidden;"><div id="stat-bar" style="width:0%; height:100%; background:#2ecc71; transition: width 0.5s;"></div></div>
+            </div>
+            <div class="stat-details-grid">
+                <div><h5 style="border-bottom: 2px solid #f39c12; padding-bottom:5px; color:#e67e22;">⚠️ 지각 기록</h5><ul id="stat-late-list" class="detail-list"></ul></div>
+                <div><h5 style="border-bottom: 2px solid #e74c3c; padding-bottom:5px; color:#c0392b;">⛔ 결석 기록</h5><ul id="stat-absent-list" class="detail-list"></ul></div>
+            </div>
+            <button class="close-btn" onclick="closeModal('modal-student-stats')">닫기</button>
+        </div>
+    </div>
+
+    <div id="modal-course" class="modal hidden">
+        <div class="modal-content">
+            <h3>새로운 수업 생성</h3>
+            <input type="text" id="new-course-name" placeholder="수업 이름">
+            <button class="btn-primary" onclick="createCourse()">생성</button>
+            <button class="close-btn" onclick="closeModal('modal-course')">취소</button>
+        </div>
+    </div>
+
+    <div id="modal-course-code" class="modal hidden">
+        <div class="modal-content">
+            <h3>✅ 수업 생성 완료</h3>
+            <p>수강생들에게 알려줄 **수업 코드**입니다.</p>
+            <div style="display:flex; justify-content:center; align-items:center; margin: 15px 0;">
+                <span id="generated-course-code" style="font-size: 24px; font-weight: bold; color: #2980b9; margin-right: 15px;"></span>
+                <button class="btn-secondary" onclick="copyCourseCode()">📋 복사</button>
+            </div>
+            <button class="close-btn" onclick="closeModal('modal-course-code')">확인</button>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
